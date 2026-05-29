@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "[*] Initiating sequence for A2A deployment..."
+...

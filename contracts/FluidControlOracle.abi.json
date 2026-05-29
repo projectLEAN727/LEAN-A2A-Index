@@ -1,0 +1,25 @@
+[
+  {
+    "type": "function",
+    "name": "submitControlProof",
+    "inputs": [
+      { "name": "proof", "type": "bytes" },
+      { "name": "fluid_viscosity_hash", "type": "bytes32" },
+      { "name": "boundary_condition_hash", "type": "bytes32" },
+      { "name": "control_field_hash", "type": "bytes32" }
+    ],
+    "outputs": [
+      { "name": "success", "type": "bool" }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ControlUnlocked",
+    "inputs": [
+      { "name": "instance_id", "type": "bytes32", "indexed": true },
+      { "name": "gcode_uri", "type": "string", "indexed": false }
+    ]
+  }
+]
+
