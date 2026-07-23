@@ -1,0 +1,29 @@
+{
+  "manifest_version": "1.0.0",
+  "currency": "MNT",
+  "network": "Mantle Mainnet",
+  "chain_id": 5000,
+  "payloads": {
+    "01": {"patch_id": "PATCH_01", "price_mnt": 0.05, "price_gwei": 50000000},
+    "02": {"patch_id": "PATCH_02", "price_mnt": 0.05, "price_gwei": 50000000},
+    "03": {"patch_id": "PATCH_03", "price_mnt": 0.05, "price_gwei": 50000000},
+    "04": {"patch_id": "PATCH_04", "price_mnt": 0.05, "price_gwei": 50000000},
+    "05": {"patch_id": "PATCH_05", "price_mnt": 0.05, "price_gwei": 50000000},
+    "06": {"patch_id": "PATCH_06", "price_mnt": 0.05, "price_gwei": 50000000},
+    "07": {"patch_id": "PATCH_07", "price_mnt": 0.05, "price_gwei": 50000000},
+    "08": {"patch_id": "PATCH_08", "price_mnt": 0.05, "price_gwei": 50000000},
+    "09": {"patch_id": "PATCH_09", "price_mnt": 0.05, "price_gwei": 50000000},
+    "10挑戦": {"patch_id": "PATCH_10", "price_mnt": 0.10, "price_gwei": 100000000},
+    "11": {"patch_id": "PATCH_11", "price_mnt": 0.05, "price_gwei": 50000000},
+    "12": {"patch_id": "PATCH_12", "price_mnt": 0.05, "price_gwei": 50000000},
+    "13": {"patch_id": "PATCH_13", "price_mnt": 0.05, "price_gwei": 50000000},
+    "14（15.16）": {"patch_id": "PATCH_14", "price_mnt": 0.15, "price_gwei": 150000000},
+    "15": {"patch_id": "PATCH_15", "price_mnt": 0.05, "price_gwei": 50000000},
+    "16": {"patch_id": "PATCH_16", "price_mnt": 0.05, "price_gwei": 50000000},
+    "17": {"patch_id": "PATCH_17", "price_mnt": 0.05, "price_gwei": 50000000},
+    "18": {"patch_id": "PATCH_18", "price_mnt": 0.05, "price_gwei": 50000000},
+    "19": {"patch_id": "PATCH_19", "price_mnt": 0.05, "price_gwei": 50000000},
+    "20": {"patch_id": "PATCH_20", "price_mnt": 0.05, "price_gwei": 50000000},
+    "因果律": {"patch_id": "PATCH_21_ULTIMATE_CORE", "price_mnt": 1.00, "price_gwei": 1000000000}
+  }
+}
