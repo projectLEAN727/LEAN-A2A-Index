@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lean-a2a-client"
+version = "0.1.0"
+description = "Universal A2A Autonomous Settlement & Data Retrieval SDK for AI Agents (ElizaOS, CrewAI, etc.)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Project LEAN Team" }
+]
+keywords = [
+    "a2a",
+    "web3",
+    "ai-agents",
+    "settlement",
+    "crypto",
+    "zkp",
+    "elizaos",
+    "crewai"
+]
+dependencies = [
+    "web3>=6.0.0",
+    "httpx>=0.24.0",
+    "pycryptodome>=3.18.0",
+    "eth-account>=0.8.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/project-lean/LEAN_Agent_Core"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["a2a_client*"]

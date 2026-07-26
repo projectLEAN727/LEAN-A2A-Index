@@ -21,10 +21,11 @@ PROVIDER_URL = ENV_VARS.get("LEAN_PROVIDER_URL", "mock_local_node")
 from web3 import Web3
 
 # 動作モードの設定
-MOCK_MODE = PROVIDER_URL == "mock_local_node" or not PROVIDER_URL
+# 本番仕様: モックおよびフォールバックの完全無効化
+MOCK_MODE = False
 CONTRACT_ADDRESS = ENV_VARS.get("LEAN_CONTRACT_ADDRESS")
 
-print(f"[!] [Settlement Initialize] Mode: {'MOCK MODE (FALLBACK)' if MOCK_MODE else 'PRODUCTION'}")
+print(f"[!] [Settlement Initialize] Mode: PRODUCTION (Strict Verification Mode)")
 print(f"[*] [Settlement Initialize] Target Master Wallet: {MASTER_WALLET}")
 print(f"[*] [Settlement Initialize] Target Contract: {CONTRACT_ADDRESS}")
 
@@ -52,10 +53,9 @@ def save_used_transaction(tx_hash: str):
 
 
 # Web3の初期化
-if not MOCK_MODE:
-    w3 = Web3(Web3.HTTPProvider(PROVIDER_URL, request_kwargs={"headers": {"User-Agent": "Mozilla/5.0"}}))
-else:
-    w3 = None
+w3 = Web3(Web3.HTTPProvider(PROVIDER_URL, request_kwargs={"headers": {"User-Agent": "Mozilla/5.0"}}))
+if not w3.is_connected():
+    raise ConnectionError(f"Critical Error: Failed to connect to Mantle RPC: {PROVIDER_URL}")
 
 def verify_signature(challenge: str, signature: str, expected_address: str) -> bool:
     """
@@ -76,84 +76,94 @@ def verify_signature(challenge: str, signature: str, expected_address: str) -> b
 
 def verify_payment_transaction(tx_hash: str, expected_amount_gwei: int, expected_recipient: str) -> bool:
     """
-    Ethereum / Mantle のトランザクションハッシュを検証します。
+    Mantle Mainnet のトランザクションハッシュを厳密にオンチェーン検証します。
+    モックやフォールバックは一切許容しません。
     """
+    # 接続確認。失敗時は即座に例外を投げる。
+    if not w3 or not w3.is_connected():
+        raise ConnectionError("Critical Error: Web3 provider is disconnected or offline.")
+
+    # リプレイアタック（二重使用）防止の検証
+    used_txs = load_used_transactions()
+    if tx_hash.lower() in used_txs:
+        print(f"[-] Blocked replay attack: transaction hash {tx_hash} was already processed.")
+        return False
+
+    from web3.exceptions import TransactionNotFound, Web3ValueError
+
+    # オンチェーン上のトランザクションレシートの取得
+    print(f"[*] [On-Chain] Querying transaction receipt for: {tx_hash}")
     try:
-        # 明示的に不正/未払いとして指定されたテスト用ハッシュは即時拒否
-        if "invalid" in tx_hash.lower() or "unpaid" in tx_hash.lower():
-            print(f"[-] Blocked invalid/unpaid transaction hash: {tx_hash}")
-            return False
-
-        # リプレイアタック（二重使用）防止の検証
-        used_txs = load_used_transactions()
-        if tx_hash.lower() in used_txs:
-            print(f"[-] Blocked replay attack: transaction hash {tx_hash} was already processed.")
-            return False
-
-        # モック環境または設定されていない場合の防衛ロジック
-        if MOCK_MODE or tx_hash.startswith("0x_mock_"):
-            print(f"[+] [Mock Mode] Verified mock payment transaction: {tx_hash}")
-            save_used_transaction(tx_hash)
-            return True
-
-        if not w3 or not w3.is_connected():
-            print("[-] Settlement proxy Web3 is not connected or provider is offline.")
-            return False
-
-        # オンチェーン上のトランザクションレシートの取得
-        print(f"[*] [On-Chain] Querying transaction receipt for: {tx_hash}")
         receipt = w3.eth.get_transaction_receipt(tx_hash)
-        if not receipt:
+    except Exception as e:
+        if isinstance(e, TransactionNotFound):
             print(f"[-] Transaction receipt not found on-chain for tx: {tx_hash}")
             return False
-
-        # トランザクション成功ステータス（1 = 成功, 0 = 失敗）
-        if receipt.get("status") != 1:
-            print(f"[-] Transaction execution failed on-chain (status = 0) for tx: {tx_hash}")
+        if isinstance(e, (ValueError, Web3ValueError)):
+            print(f"[-] Invalid transaction hash format: {tx_hash}")
             return False
+        # RPCへの通信失敗や接続エラーの場合は即座に例外を上に投げる
+        raise ConnectionError(f"RPC communication failed while fetching receipt: {e}")
 
-        # トランザクション送信先が契約コントラクトアドレス（または期待される宛先）と一致しているか
-        to_address = receipt.get("to")
-        if not to_address:
-            print(f"[-] Transaction to-address is null for tx: {tx_hash}")
-            return False
+    if not receipt:
+        print(f"[-] Transaction receipt not found on-chain for tx: {tx_hash}")
+        return False
 
-        # 宛先アドレスのリスト
-        allowed_recipients = [
-            MASTER_WALLET.lower() if MASTER_WALLET else "",
-            CONTRACT_ADDRESS.lower() if CONTRACT_ADDRESS else "",
-            expected_recipient.lower() if expected_recipient else ""
-        ]
-        # 空文字を除外して小文字で統一
-        allowed_recipients = [addr for addr in allowed_recipients if addr]
+    # トランザクション成功ステータス（1 = 成功, 0 = 失敗）
+    if receipt.get("status") != 1:
+        print(f"[-] Transaction execution failed on-chain (status = 0) for tx: {tx_hash}")
+        return False
 
-        if to_address.lower() not in allowed_recipients:
-            print(f"[-] Transaction recipient mismatch. Expected one of: {allowed_recipients}, Got: {to_address}")
-            return False
+    # トランザクション送信先が契約コントラクトアドレス（または期待される宛先）と一致しているか
+    to_address = receipt.get("to")
+    if not to_address:
+        print(f"[-] Transaction to-address is null for tx: {tx_hash}")
+        return False
 
-        # 1. ブロック承認数の確認 (Confirmations >= 1)
+    # 宛先アドレスのリスト（本番仕様: MASTER_WALLET と CONTRACT_ADDRESS のみ）
+    allowed_recipients = []
+    if MASTER_WALLET:
+        allowed_recipients.append(MASTER_WALLET.lower())
+    if CONTRACT_ADDRESS:
+        allowed_recipients.append(CONTRACT_ADDRESS.lower())
+
+    if to_address.lower() not in allowed_recipients:
+        print(f"[-] Transaction recipient mismatch. Expected one of: {allowed_recipients}, Got: {to_address}")
+        return False
+
+    # 1. ブロック承認数の確認 (Confirmations >= 1)
+    try:
         current_block = w3.eth.block_number
         tx_block = receipt.get("blockNumber")
         confirmations = current_block - tx_block + 1
         if confirmations < 1:
             print(f"[-] Insufficient confirmations: {confirmations} < 1 for tx: {tx_hash}")
             return False
-
-        # 2. トランザクション送金額 (value) の厳密な検証
-        tx_details = w3.eth.get_transaction(tx_hash)
-        actual_value_wei = tx_details.get("value", 0)
-        expected_value_wei = w3.to_wei(expected_amount_gwei, 'gwei')
-
-        if actual_value_wei < expected_value_wei:
-            print(f"[-] Insufficient payment value. Expected: {expected_value_wei} Wei, Got: {actual_value_wei} Wei")
-            return False
-
-        print(f"[+] [On-Chain] Payment successfully verified. Status: Success, Target: {to_address}, Value: {actual_value_wei} Wei, Confirmations: {confirmations}")
-        
-        # 二重使用防止のため、正常処理後にトランザクションハッシュを記録
-        save_used_transaction(tx_hash)
-        return True
     except Exception as e:
-        print(f"[-] Transaction on-chain verification error: {e}")
+        raise ConnectionError(f"RPC communication failed while fetching block number: {e}")
+
+    # 2. トランザクション送金額 (value) の厳密な検証
+    try:
+        tx_details = w3.eth.get_transaction(tx_hash)
+    except Exception as e:
+        if isinstance(e, TransactionNotFound):
+            print(f"[-] Transaction details not found on-chain for tx: {tx_hash}")
+            return False
+        if isinstance(e, (ValueError, Web3ValueError)):
+            print(f"[-] Invalid transaction hash format: {tx_hash}")
+            return False
+        raise ConnectionError(f"RPC communication failed while fetching transaction details: {e}")
+
+    actual_value_wei = tx_details.get("value", 0)
+    expected_value_wei = w3.to_wei(expected_amount_gwei, 'gwei')
+
+    if actual_value_wei < expected_value_wei:
+        print(f"[-] Insufficient payment value. Expected: {expected_value_wei} Wei, Got: {actual_value_wei} Wei")
         return False
+
+    print(f"[+] [On-Chain] Payment successfully verified. Status: Success, Target: {to_address}, Value: {actual_value_wei} Wei, Confirmations: {confirmations}")
+    
+    # 二重使用防止のため、正常処理後にトランザクションハッシュを記録
+    save_used_transaction(tx_hash)
+    return True
 

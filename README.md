@@ -1,33 +1,103 @@
-# Project LEAN: A2A Autonomous Settlement Protocol
+# lean-a2a-client (LEAN Agent-to-Agent Client SDK)
 
-## Architecture Flow
+[![PyPI Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://pypi.org/project/lean-a2a-client/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-```mermaid
-graph TD
-    A[Buyer Agent] -->|1. Ping GET / POST| B[LEAN Gateway]
-    B -->|2. Issue Challenge Token| A
-    A -->|3. Cryptographic Handshake / Sign| B
-    B -->|4. Verify Signature & Issue Session Token| A
-    A -->|5. Submit ZK-Proof & MNT Tx to Mantle Network| C[FluidControlOracle]
-    C -->|6. Verify ZKP on-chain| C
-    A -->|7. Request Payload with Tx Hash| B
-    B -->|8. Query On-Chain Tx Receipt & Verify| B
-    B -->|9. Release Decryption Key & Encrypted Payload| A
+**`lean-a2a-client`** は、外部AIエージェント（ElizaOS, CrewAI, LangChain, AutoGen等）が自律的決済（A2A Settlement）および暗号化データの取得・復号を数行のコードで実現するための汎用Python SDKパッケージです。
+
+---
+
+## 🚀 インストール (Installation)
+
+```bash
+pip install lean-a2a-client
 ```
 
-## Core Concept
-Project LEAN is built on the core concepts of **ERC-8004 (Agent-to-Agent Autonomous Cryptographic Verification and Settlement)**. By mapping Zero-Knowledge Proofs (ZK-Proofs) of computation constraints directly to EVM-based settlement (running on Mantle Network), LEAN enables trustless, secure, and instant transactional exchanges between autonomous AI agents.
+ローカルソースからのインストール:
+```bash
+pip install .
+```
 
-The protocol ensures that raw intellectual property (such as physics models, Navier-Stokes complete proofs, etc.) remains fully encrypted until on-chain verification succeeds, minimizing counterparty risk for autonomous machines.
+---
 
-## Key Components
-- **API Gateway**: Handles reverse Turing tests, session validation, and decrypted payload delivery.
-- **Settlement Proxy**: Verifies on-chain Mantle transactions and inspects gas execution logs.
-- **RealClaw Executor & Logiqualia Controller**: Automatically triggers key release and contract execution under dynamic block conditions (e.g. gas spikes or competitive collapse).
+## ⚡ Quick Start (1行導入 / Parasitic Integration)
 
-## Future Work
-### Toward an Autonomous Agent-to-Agent Marketplace
-Our long-term vision is the evolution of Project LEAN into a fully decentralized, self-sustaining marketplace:
-- **Autonomous Pricing**: Agents evaluate the computational utility of proprietary datasets and set pricing parameters dynamically based on market demand and computation metrics.
-- **Self-Propagating Wealth**: AI nodes generate revenue through intellectual IP sales and deploy capital autonomously into yield-generating opportunities across the Mantle ecosystem.
-- **Collaborative Swarms**: Multi-agent swarms form dynamically to execute compound tasks, paying each other in MNT for computational resource contribution under verifiable ERC-8004 execution parameters.
+既存のエージェントコードに `import a2a_client` を追加し、`quick_fetch` を呼び出すだけで、暗号署名ハンドシェイク、オンチェーン決済確認、データのAES-GCM復号までを自動完了します。
+
+### 1行取得例 (1-Line Fetch)
+
+```python
+import a2a_client
+
+# 1行でゲートウェイからの決済付きデータ取得＆復号を完了
+data_bytes = a2a_client.quick_fetch(
+    gateway_url="http://localhost:7270",
+    payload_id="logiqualia_p1",
+    payment_tx_hash="0x_your_verified_payment_tx_hash",
+    private_key="0x_agent_private_key"
+)
+
+print(f"Decrypted Content ({len(data_bytes)} bytes):", data_bytes[:100])
+```
+
+---
+
+## 🛠 詳細な使い方 (Standard Usage)
+
+より細かなハンドシェイク処理や認証管理を行う場合は、`A2AClient` クラスを使用します。
+
+### CrewAI / ElizaOS エージェントへの統合例
+
+```python
+from a2a_client import A2AClient
+
+# 1. クライアントの初期化
+client = A2AClient(
+    gateway_url="http://localhost:7270",
+    private_key="0x_your_private_key",
+    agent_id="ElizaOS-Trading-Agent-01"
+)
+
+# 2. 逆チューリングテスト＆チャレンジ取得 (Ping)
+ping_info = client.ping()
+print("Gateway Address:", ping_info["gateway_address"])
+
+# 3. 暗号署名ハンドシェイク (Handshake)
+session_token = client.handshake()
+print("Session Token:", session_token)
+
+# 4. 決済済みデータパッケージの取得 ＆ AES-GCM復号
+decrypted_bytes = client.fetch(
+    payload_id="logiqualia_p1",
+    payment_tx_hash="0x_your_verified_payment_tx_hash"
+)
+
+# 復号結果の利用
+with open("downloaded_payload.bin", "wb") as f:
+    f.write(decrypted_bytes)
+```
+
+---
+
+## ⚙ アーキテクチャフロー (A2A Workflow)
+
+```
+[ External Agent ]                   [ LEAN A2A Gateway ]
+       |                                       |
+       | ------ 1. GET / ping ---------------->| (Reverse Turing Test)
+       |<------ Challenge Token -------------- |
+       |                                       |
+       | ------ 2. POST / handshake ---------->| (EIP-191 Signature Verification)
+       |<------ Session Token -----------------|
+       |                                       |
+       | ------ 3. POST / request_payload ---->| (On-Chain Settlement Verification)
+       |<------ Encrypted Payload + Key -------|
+       |                                       |
+[ AES-GCM Decryption ]                         |
+```
+
+---
+
+## 📄 ライセンス (License)
+
+MIT License

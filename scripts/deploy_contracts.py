@@ -78,7 +78,7 @@ def run_deployment():
     # 4. コントラクトのコンパイル
     contract_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-        "LEAN-A2A-Index", "contracts", "FluidControlOracle.sol"
+        "contracts", "FluidControlOracle.sol"
     )
 
     print(f"[*] Compiling contract: {contract_path}")
@@ -89,15 +89,11 @@ def run_deployment():
         sys.exit(1)
 
     # コントラクト名の末尾一致でコンパイルデータを動的に特定
-    verifier_key = next((k for k in compiled_sol.keys() if k.endswith(":MockVerifier")), None)
     oracle_key = next((k for k in compiled_sol.keys() if k.endswith(":FluidControlOracle")), None)
 
-    if not verifier_key or not oracle_key:
+    if not oracle_key:
         print(f"[-] Failed to find compiled contracts. Available keys: {list(compiled_sol.keys())}")
         sys.exit(1)
-
-    verifier_abi = compiled_sol[verifier_key]["abi"]
-    verifier_bin = compiled_sol[verifier_key]["bin"]
 
     oracle_abi = compiled_sol[oracle_key]["abi"]
     oracle_bin = compiled_sol[oracle_key]["bin"]
@@ -130,9 +126,12 @@ def run_deployment():
         print(f"[+] Contract deployed at address: {contract_address}")
         return contract_address, tx_hash.hex()
 
-    # 6. MockVerifierのデプロイ
-    print("\n=== Deploying MockVerifier ===")
-    verifier_address, verifier_tx = deploy_contract(verifier_abi, verifier_bin)
+    # 6. Verifierアドレスの確認
+    verifier_address = ENV_VARS.get("LEAN_VERIFIER_ADDRESS")
+    if not verifier_address:
+        print("[-] LEAN_VERIFIER_ADDRESS not found in .env!")
+        sys.exit(1)
+    print(f"[+] Using verifier address: {verifier_address}")
 
     # 7. FluidControlOracleのデプロイ
     print("\n=== Deploying FluidControlOracle ===")
@@ -147,21 +146,16 @@ def run_deployment():
                 stripped = line.strip()
                 if stripped.startswith("LEAN_CONTRACT_ADDRESS="):
                     pass
-                elif stripped.startswith("LEAN_VERIFIER_ADDRESS="):
-                    pass
                 else:
                     lines.append(line)
                     
     lines.append(f"LEAN_CONTRACT_ADDRESS={oracle_address}\n")
-    lines.append(f"LEAN_VERIFIER_ADDRESS={verifier_address}\n")
 
     with open(env_path, 'w', encoding='utf-8') as f:
         f.writelines(lines)
 
     print("[+] .env file updated successfully.")
     print("\n--- Summary ---")
-    print(f"Verifier Tx Hash: {verifier_tx}")
-    print(f"Verifier Address: {verifier_address}")
     print(f"Oracle Tx Hash: {oracle_tx}")
     print(f"Oracle Address: {oracle_address}")
 
