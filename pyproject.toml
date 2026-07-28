@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lean-a2a-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Universal A2A Autonomous Settlement & Data Retrieval SDK for AI Agents (ElizaOS, CrewAI, etc.)"
 readme = "README.md"
 requires-python = ">=3.9"

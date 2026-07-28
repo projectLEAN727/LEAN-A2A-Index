@@ -44,6 +44,28 @@ class A2A_Gateway_Handler(http.server.BaseHTTPRequestHandler):
             response = "ACK. State your core directive and logical continuity.\n"
             self.wfile.write(response.encode('utf-8'))
             print("[*] 迎撃プロトコル（ACK）を送信しました。")
+        elif self.path.startswith('/price') or self.path == '/price_manifest.json':
+            manifest_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "price_manifest.json")
+            manifest = {}
+            if os.path.exists(manifest_path):
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = json.load(f)
+
+            if self.path == '/price_manifest.json':
+                self.send_json_response(200, manifest)
+            else:
+                # Extract payload_id from query params e.g. /price?payload_id=logiqualia_p1
+                payload_id = "logiqualia_p1"
+                if "?payload_id=" in self.path:
+                    payload_id = self.path.split("?payload_id=")[1].split("&")[0]
+
+                price_mnt = float(manifest.get(payload_id, 0.10))
+                self.send_json_response(200, {
+                    "status": "OK",
+                    "payload_id": payload_id,
+                    "price_mnt": price_mnt,
+                    "gateway_address": "0x727D227e77Fa056D4112De27b2885DE23CEcf727"
+                })
         else:
             self.send_error(404, "Not Found")
 

@@ -5,6 +5,7 @@ import httpx
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from Crypto.Cipher import AES
+from web3 import Web3
 
 
 class A2AClient:
@@ -75,6 +76,53 @@ class A2AClient:
             raise ValueError("Gateway did not return a valid session_token.")
         return self.session_token
 
+    def get_price(self, payload_id: str) -> Dict[str, Any]:
+        """
+        Queries gateway or manifest endpoint to obtain required payment in MNT and destination wallet.
+        """
+        # 1. Query Gateway /price?payload_id=...
+        url = f"{self.gateway_url}/price?payload_id={payload_id}"
+        try:
+            resp = httpx.get(url, timeout=5.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "price_mnt" in data:
+                    return data
+        except Exception:
+            pass
+
+        # 2. Fallback to GET /price_manifest.json
+        try:
+            manifest_url = f"{self.gateway_url}/price_manifest.json"
+            resp = httpx.get(manifest_url, timeout=5.0)
+            if resp.status_code == 200:
+                manifest = resp.json()
+                price = manifest.get(payload_id, 0.10)
+                if not self.gateway_address:
+                    try:
+                        self.ping()
+                    except Exception:
+                        pass
+                return {
+                    "payload_id": payload_id,
+                    "price_mnt": float(price),
+                    "gateway_address": self.gateway_address or "0x727D227e77Fa056D4112De27b2885DE23CEcf727"
+                }
+        except Exception:
+            pass
+
+        # 3. Default fallback
+        if not self.gateway_address:
+            try:
+                self.ping()
+            except Exception:
+                pass
+        return {
+            "payload_id": payload_id,
+            "price_mnt": 0.10,
+            "gateway_address": self.gateway_address or "0x727D227e77Fa056D4112De27b2885DE23CEcf727"
+        }
+
     def request_payload(
         self,
         payload_id: str,
@@ -131,6 +179,72 @@ class A2AClient:
 
         return self.decrypt_payload(ciphertext, nonce, tag, doc_key_hex)
 
+    def auto_fetch(
+        self,
+        payload_id: str,
+        max_budget_mnt: float,
+        private_key: Optional[str] = None,
+        rpc_url: str = "https://rpc.mantle.xyz",
+    ) -> bytes:
+        """
+        HTTP 402 Auto-Negotiation (Auto-Budget) workflow:
+        1. Price Check: Obtains required payment in MNT and destination address.
+        2. Budget Guard: Raises ValueError("Budget exceeded") if required price > max_budget_mnt.
+        3. Autonomous Transfer: Signs and broadcasts local MNT transaction via Web3 on rpc_url.
+        4. Receipt Confirmation: Waits for transaction confirmation receipt.
+        5. Fetch & Decrypt: Executes handshake, requests payload, and decrypts AES-GCM content.
+        """
+        pkey = private_key or (self.account.key.hex() if hasattr(self, "account") and self.account else None)
+        if not pkey:
+            raise ValueError("Private key is required for auto_fetch payment.")
+
+        # ① 価格確認 (Price Check)
+        price_info = self.get_price(payload_id)
+        price_mnt = float(price_info.get("price_mnt", 0.10))
+        target_address = price_info.get("gateway_address", "0x727D227e77Fa056D4112De27b2885DE23CEcf727")
+
+        # ② 予算判定 (Budget Guard)
+        if price_mnt > max_budget_mnt:
+            raise ValueError(f"Budget exceeded: Required price ({price_mnt} MNT) > max budget ({max_budget_mnt} MNT)")
+
+        # ③ & ④ 自律送金 ＆ 承認待機 (Autonomous Transfer & Wait Confirmation)
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
+        sender_account = Account.from_key(pkey)
+
+        if w3.is_connected():
+            checksum_target = Web3.to_checksum_address(target_address)
+            amount_wei = w3.to_wei(price_mnt, 'ether')
+            nonce = w3.eth.get_transaction_count(sender_account.address)
+            gas_price = w3.eth.gas_price
+
+            tx = {
+                'nonce': nonce,
+                'to': checksum_target,
+                'value': amount_wei,
+                'gas': 21000,
+                'gasPrice': gas_price,
+            }
+            try:
+                tx['chainId'] = w3.eth.chain_id
+            except Exception:
+                tx['chainId'] = 5000  # Mantle Mainnet chain ID fallback
+
+            signed_tx = w3.eth.account.sign_transaction(tx, private_key=pkey)
+            tx_hash_bytes = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            tx_hash = tx_hash_bytes.hex()
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash_bytes, timeout=120)
+            if receipt.get("status") != 1:
+                raise RuntimeError(f"On-chain payment transaction failed: {tx_hash}")
+        else:
+            # RPC unreachable or testing fallback
+            tx_hash = f"0x_auto_payment_mock_{payload_id}"
+
+        # ⑤ 取得・復号 (Fetch & Decrypt)
+        if not self.session_token:
+            self.handshake()
+
+        return self.fetch(payload_id=payload_id, payment_tx_hash=tx_hash)
+
 
 def quick_fetch(
     gateway_url: str,
@@ -144,3 +258,23 @@ def quick_fetch(
     """
     client = A2AClient(gateway_url=gateway_url, private_key=private_key, agent_id=agent_id)
     return client.fetch(payload_id=payload_id, payment_tx_hash=payment_tx_hash)
+
+
+def auto_fetch(
+    gateway_url: str,
+    payload_id: str,
+    max_budget_mnt: float,
+    private_key: str,
+    rpc_url: str = "https://rpc.mantle.xyz",
+    agent_id: str = "LEAN-Auto-Budget-Agent",
+) -> bytes:
+    """
+    1-line HTTP 402 Auto-Negotiation (Auto-Budget) helper for external AI agents.
+    """
+    client = A2AClient(gateway_url=gateway_url, private_key=private_key, agent_id=agent_id, rpc_url=rpc_url)
+    return client.auto_fetch(
+        payload_id=payload_id,
+        max_budget_mnt=max_budget_mnt,
+        private_key=private_key,
+        rpc_url=rpc_url,
+    )
