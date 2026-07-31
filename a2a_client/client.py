@@ -201,29 +201,59 @@ class A2AClient:
         # ① 価格確認 (Price Check)
         price_info = self.get_price(payload_id)
         price_mnt = float(price_info.get("price_mnt", 0.10))
-        target_address = price_info.get("gateway_address", "0x727D227e77Fa056D4112De27b2885DE23CEcf727")
+        seller_raw = price_info.get("gateway_address", "0x727D227E77fA056D4112DE27b2885de23cECf727")
+        oracle_raw = price_info.get("oracle_address", self.contract_address or "0x727D227E77fA056D4112DE27b2885de23cECf727")
+        seller_address = Web3.to_checksum_address(seller_raw)
+        oracle_address = Web3.to_checksum_address(oracle_raw)
+        payload_b32 = price_info.get("payload_bytes32")
 
         # ② 予算判定 (Budget Guard)
         if price_mnt > max_budget_mnt:
             raise ValueError(f"Budget exceeded: Required price ({price_mnt} MNT) > max budget ({max_budget_mnt} MNT)")
 
-        # ③ & ④ 自律送金 ＆ 承認待機 (Autonomous Transfer & Wait Confirmation)
+        # ③ & ④ スマートコントラクト(payAndUnlock)経由の自律決済 ＆ 承認待機
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         sender_account = Account.from_key(pkey)
 
         if w3.is_connected():
-            checksum_target = Web3.to_checksum_address(target_address)
+            checksum_oracle = Web3.to_checksum_address(oracle_address)
+            checksum_seller = Web3.to_checksum_address(seller_address)
             amount_wei = w3.to_wei(price_mnt, 'ether')
+
+            # Format payload_id to bytes32
+            if payload_b32 and isinstance(payload_b32, str) and payload_b32.startswith("0x"):
+                p_bytes32 = bytes.fromhex(payload_b32[2:].zfill(64))
+            elif isinstance(payload_id, str) and payload_id.startswith("0x") and len(payload_id) == 66:
+                p_bytes32 = bytes.fromhex(payload_id[2:])
+            else:
+                p_bytes32 = Web3.keccak(text=payload_id)
+
+            abi = [
+                {
+                    "type": "function",
+                    "name": "payAndUnlock",
+                    "inputs": [
+                        { "name": "payload_id", "type": "bytes32" },
+                        { "name": "seller", "type": "address" }
+                    ],
+                    "outputs": [
+                        { "name": "success", "type": "bool" }
+                    ],
+                    "stateMutability": "payable"
+                }
+            ]
+
+            contract = w3.eth.contract(address=checksum_oracle, abi=abi)
             nonce = w3.eth.get_transaction_count(sender_account.address)
             gas_price = w3.eth.gas_price
 
-            tx = {
-                'nonce': nonce,
-                'to': checksum_target,
+            tx = contract.functions.payAndUnlock(p_bytes32, checksum_seller).build_transaction({
+                'from': sender_account.address,
                 'value': amount_wei,
-                'gas': 21000,
+                'nonce': nonce,
                 'gasPrice': gas_price,
-            }
+                'gas': 100000,
+            })
             try:
                 tx['chainId'] = w3.eth.chain_id
             except Exception:
@@ -234,7 +264,7 @@ class A2AClient:
             tx_hash = tx_hash_bytes.hex()
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash_bytes, timeout=120)
             if receipt.get("status") != 1:
-                raise RuntimeError(f"On-chain payment transaction failed: {tx_hash}")
+                raise RuntimeError(f"On-chain payAndUnlock transaction failed: {tx_hash}")
         else:
             # RPC unreachable or testing fallback
             tx_hash = f"0x_auto_payment_mock_{payload_id}"

@@ -1,6 +1,6 @@
 # lean-a2a-client (LEAN Agent-to-Agent Client SDK)
 
-[![PyPI Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://pypi.org/project/lean-a2a-client/)
+[![PyPI Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://pypi.org/project/lean-a2a-client/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **`lean-a2a-client`** は、外部AIエージェント（ElizaOS, CrewAI, LangChain, AutoGen等）が自律的決済（A2A Settlement）および暗号化データの取得・復号を数行のコードで実現するための汎用Python SDKパッケージです。

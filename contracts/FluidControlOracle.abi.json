@@ -1,6 +1,18 @@
 [
   {
     "type": "function",
+    "name": "payAndUnlock",
+    "inputs": [
+      { "name": "payload_id", "type": "bytes32" },
+      { "name": "seller", "type": "address" }
+    ],
+    "outputs": [
+      { "name": "success", "type": "bool" }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "submitControlProof",
     "inputs": [
       { "name": "proof", "type": "bytes" },
@@ -15,6 +27,17 @@
   },
   {
     "type": "event",
+    "name": "PaymentProcessed",
+    "inputs": [
+      { "name": "payload_id", "type": "bytes32", "indexed": true },
+      { "name": "buyer", "type": "address", "indexed": true },
+      { "name": "seller", "type": "address", "indexed": true },
+      { "name": "total_amount", "type": "uint256", "indexed": false },
+      { "name": "fee_amount", "type": "uint256", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
     "name": "ControlUnlocked",
     "inputs": [
       { "name": "instance_id", "type": "bytes32", "indexed": true },
@@ -22,4 +45,3 @@
     ]
   }
 ]
-

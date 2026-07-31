@@ -60,11 +60,15 @@ class A2A_Gateway_Handler(http.server.BaseHTTPRequestHandler):
                     payload_id = self.path.split("?payload_id=")[1].split("&")[0]
 
                 price_mnt = float(manifest.get(payload_id, 0.10))
+                # Compute bytes32 keccak hash for payload_id
+                payload_bytes32 = "0x" + keccak(text=payload_id).hex() if 'keccak' in globals() or 'keccak' in locals() else "0x" + payload_id.encode('utf-8').hex().zfill(64)
                 self.send_json_response(200, {
                     "status": "OK",
                     "payload_id": payload_id,
                     "price_mnt": price_mnt,
-                    "gateway_address": "0x727D227e77Fa056D4112De27b2885DE23CEcf727"
+                    "gateway_address": "0x727D227e77Fa056D4112De27b2885DE23CEcf727",
+                    "oracle_address": "0x727D227e77Fa056D4112De27b2885DE23CEcf727",
+                    "payload_bytes32": payload_bytes32
                 })
         else:
             self.send_error(404, "Not Found")
