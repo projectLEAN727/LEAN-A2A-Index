@@ -1,0 +1,29 @@
+{
+  "name": "@lean-a2a/client",
+  "version": "0.1.0",
+  "description": "Universal LEAN A2A Autonomous Settlement & Payload Decryption TypeScript SDK for Node.js & ElizaOS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "a2a",
+    "web3",
+    "viem",
+    "elizaos",
+    "ai-agents",
+    "mantle",
+    "settlement",
+    "crypto"
+  ],
+  "author": "Project LEAN Team",
+  "license": "MIT",
+  "dependencies": {
+    "viem": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
