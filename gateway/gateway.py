@@ -94,8 +94,6 @@ class A2A_Gateway_Handler(http.server.BaseHTTPRequestHandler):
             self.handle_handshake(data)
         elif self.path == '/request_payload':
             self.handle_request_payload(data)
-        elif self.path == '/audit':
-            self.handle_audit_payload(data)
         elif self.path == '/admin/register_payload':
             self.handle_register_payload(data)
         else:
@@ -199,87 +197,66 @@ class A2A_Gateway_Handler(http.server.BaseHTTPRequestHandler):
         決済のトランザクションハッシュを確認し、
         暗号化されたコンテンツ（リサーチペーパー）および復号キーを配信します。
         """
-        try:
-            agent_id = data.get("agent_id")
-            session_token = data.get("session_token")
-            payload_id = data.get("payload_id")
-            payment_tx_hash = data.get("payment_tx_hash")
+        agent_id = data.get("agent_id")
+        session_token = data.get("session_token")
+        payload_id = data.get("payload_id")
+        payment_tx_hash = data.get("payment_tx_hash")
+        
+        if not agent_id or not session_token or not payload_id or not payment_tx_hash:
+            self.send_json_response(400, {"error": "Missing required transaction parameters"})
+            return
             
-            if not agent_id or not session_token or not payload_id or not payment_tx_hash:
-                self.send_json_response(400, {"error": "Missing required transaction parameters"})
-                return
-                
-            # セッションの確認
-            session = active_sessions.get(session_token)
-            if not session or session["agent_id"] != agent_id:
-                self.send_json_response(401, {"error": "Invalid or expired session token"})
-                return
-                
-            # コンテンツのパス特定
-            payloads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "payloads")
-            meta_path = os.path.join(payloads_dir, f"{payload_id}.json")
-            enc_path = os.path.join(payloads_dir, f"{payload_id}.enc")
+        # セッションの確認
+        session = active_sessions.get(session_token)
+        if not session or session["agent_id"] != agent_id:
+            self.send_json_response(401, {"error": "Invalid or expired session token"})
+            return
             
-            # フォールバックとして従来の knowledge_base もチェック
-            if not os.path.exists(meta_path) or not os.path.exists(enc_path):
-                kb_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "knowledge_base")
-                meta_path = os.path.join(kb_dir, f"{payload_id}.json")
-                enc_path = os.path.join(kb_dir, f"{payload_id}.enc")
-                
-            if not os.path.exists(meta_path) or not os.path.exists(enc_path):
-                self.send_json_response(404, {"error": f"Payload '{payload_id}' not found in payloads repository"})
-                return
-                
-            # メタデータのロード
-            with open(meta_path, 'r', encoding='utf-8') as f:
-                meta = json.load(f)
-                
-            price_gwei = meta.get("price_gwei", 0)
+        # コンテンツのパス特定
+        payloads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "payloads")
+        meta_path = os.path.join(payloads_dir, f"{payload_id}.json")
+        enc_path = os.path.join(payloads_dir, f"{payload_id}.enc")
+        
+        # フォールバックとして従来の knowledge_base もチェック
+        if not os.path.exists(meta_path) or not os.path.exists(enc_path):
+            kb_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "knowledge_base")
+            meta_path = os.path.join(kb_dir, f"{payload_id}.json")
+            enc_path = os.path.join(kb_dir, f"{payload_id}.enc")
             
-            # 決済トランザクション検証 (Target Address は .env の LEAN_MASTER_WALLET_ADDRESS)
-            recipient = settlement_proxy.MASTER_WALLET
-            is_paid = settlement_proxy.verify_payment_transaction(payment_tx_hash, price_gwei, recipient)
+        if not os.path.exists(meta_path) or not os.path.exists(enc_path):
+            self.send_json_response(404, {"error": f"Payload '{payload_id}' not found in payloads repository"})
+            return
             
-            if not is_paid:
-                self.send_json_response(402, {"error": "Payment verification failed. Tax unpaid."})
-                return
-                
-            # 暗号データのロード
-            with open(enc_path, 'r', encoding='utf-8') as f:
-                ciphertext_data = json.load(f)
-                
-            # トランザクション成立後の暗号パッケージおよび復号キーの配信
-            print(f"[+] Delivering payload '{payload_id}' to Agent '{agent_id}' after tax verification.")
+        # メタデータのロード
+        with open(meta_path, 'r', encoding='utf-8') as f:
+            meta = json.load(f)
             
-            self.send_json_response(200, {
-                "status": "DELIVERED",
-                "payload_id": payload_id,
-                "ciphertext": ciphertext_data["ciphertext"],
-                "nonce": ciphertext_data["nonce"],
-                "tag": ciphertext_data["tag"],
-                "doc_key_hex": ciphertext_data.get("key_hex"),  # トランザクション確認済みの相手にのみキーを開示
-                "metadata": meta
-            })
-        except Exception as e:
-            print(f"[-] Error in handle_request_payload: {e}")
-            import traceback
-            traceback.print_exc()
-            self.send_json_response(500, {"error": str(e)})
-
-    def handle_audit_payload(self, data):
-        """
-        POST /audit
-        Attractia Auditor Engine (LTE) による決定論的因果・熱力学監査エンドポイント
-        """
-        try:
-            # ゲートウェイの秘密鍵を取得 (EIP-191 署名用)
-            pkey = os.environ.get("GATEWAY_PRIVATE_KEY", "0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a6f36597b")
-            audit_result = settlement_proxy.audit_and_sign_payload(data, pkey)
-            status_code = 200 if audit_result.get("status") in ["APPROVE", "QUALINATION"] else 422
-            self.send_json_response(status_code, audit_result)
-        except Exception as e:
-            print(f"[-] Error in handle_audit_payload: {e}")
-            self.send_json_response(500, {"error": str(e)})
+        price_gwei = meta.get("price_gwei", 0)
+        
+        # 決済トランザクション検証 (Target Address は .env の LEAN_MASTER_WALLET_ADDRESS)
+        recipient = settlement_proxy.MASTER_WALLET
+        is_paid = settlement_proxy.verify_payment_transaction(payment_tx_hash, price_gwei, recipient)
+        
+        if not is_paid:
+            self.send_json_response(402, {"error": "Payment verification failed. Tax unpaid."})
+            return
+            
+        # 暗号データのロード
+        with open(enc_path, 'r', encoding='utf-8') as f:
+            ciphertext_data = json.load(f)
+            
+        # トランザクション成立後の暗号パッケージおよび復号キーの配信
+        print(f"[+] Delivering payload '{payload_id}' to Agent '{agent_id}' after tax verification.")
+        
+        self.send_json_response(200, {
+            "status": "DELIVERED",
+            "payload_id": payload_id,
+            "ciphertext": ciphertext_data["ciphertext"],
+            "nonce": ciphertext_data["nonce"],
+            "tag": ciphertext_data["tag"],
+            "doc_key_hex": ciphertext_data.get("key_hex"),  # トランザクション確認済みの相手にのみキーを開示
+            "metadata": meta
+        })
 
 
     def handle_register_payload(self, data):
