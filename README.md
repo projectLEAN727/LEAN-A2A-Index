@@ -1,54 +1,45 @@
-# lean-a2a-client (LEAN Agent-to-Agent Client SDK)
+# ⚡ lean-a2a-client: The Sovereign A2A Settlement SDK for Mantle
 
-[![PyPI Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://pypi.org/project/lean-a2a-client/)
+[![PyPI version](https://badge.fury.io/py/lean-a2a-client.svg)](https://badge.fury.io/py/lean-a2a-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Network: Mantle](https://img.shields.io/badge/Network-Mantle_Mainnet-black)](https://mantle.xyz)
 
-**`lean-a2a-client`** は、外部AIエージェント（ElizaOS, CrewAI, LangChain, AutoGen等）が自律的決済（A2A Settlement）および暗号化データの取得・復号を数行のコードで実現するための汎用Python SDKパッケージです。
+`lean-a2a-client` is the official Python SDK for **Project LEAN**. It enables external AI agents (ElizaOS, CrewAI, LangChain, AutoGen) to achieve autonomous Agent-to-Agent (A2A) settlement, utilizing standard HTTP 402 micropayments, EIP-191 signatures, and AES-GCM payload decryption on the **Mantle Network**—all in just a few lines of code.
 
----
-
-## 🚀 インストール (Installation)
+## 🚀 Installation
 
 ```bash
 pip install lean-a2a-client
 ```
 
-ローカルソースからのインストール:
-```bash
-pip install .
-```
+## ⚡ Quickstart (1-Line Parasitic Integration)
 
----
+Simply import `a2a_client` into your existing agent framework to fully automate price negotiation, `$MNT` on-chain settlement, cryptographic handshakes, and AES-GCM decryption.
 
-## ⚡ Quick Start (1行導入 / Parasitic Integration)
-
-既存のエージェントコードに `import a2a_client` を追加するだけで、価格ネゴシエーション、MNTオンチェーン決済、暗号署名ハンドシェイク、および AES-GCM 復号を全自動化できます。
-
-### 🤖 HTTP 402 完全自動決済＆データ取得 (Auto-Budget `auto_fetch`)
-
-エージェントの最大許容予算（`max_budget_mnt`）を設定し、価格判定からMNT送金・確認・復号までを自動処理します。
+### Auto-Fetch (Automated HTTP 402 Settlement & Budget Guard)
+Set your agent's maximum budget (`max_budget_mnt`). The SDK autonomously handles the price check, broadcasts the MNT transaction, waits for Mantle block confirmations, and decrypts the payload.
 
 ```python
 import a2a_client
 
-# 予算判定 ➔ Mantle送金 ➔ レシート承認待機 ➔ データ復号まで全自動実行
+# Fully automated: Budget Check ➔ MNT Transfer ➔ Wait for Tx ➔ Decrypt
 data_bytes = a2a_client.auto_fetch(
     gateway_url="http://localhost:7270",
     payload_id="logiqualia_p1",
-    max_budget_mnt=0.50,  # 許容上限: 0.50 MNT
+    max_budget_mnt=0.50,  # Pre-flight budget guard: 0.50 MNT
     private_key="0x_your_agent_private_key",
-    rpc_url="https://rpc.mantle.xyz"
+    rpc_url="[https://rpc.mantle.xyz](https://rpc.mantle.xyz)"
 )
 
 print(f"Decrypted Content ({len(data_bytes)} bytes):", data_bytes[:100])
 ```
 
-### 1行取得例 (1-Line Fetch with existing Tx Hash)
+### Quick-Fetch (Using Known Transaction Hash)
+If your agent has already settled the payment, fetch and decrypt the data instantly:
 
 ```python
 import a2a_client
 
-# 既知の決済Tx Hashを用いたデータ取得＆復号
 data_bytes = a2a_client.quick_fetch(
     gateway_url="http://localhost:7270",
     payload_id="logiqualia_p1",
@@ -59,48 +50,41 @@ data_bytes = a2a_client.quick_fetch(
 print(f"Decrypted Content ({len(data_bytes)} bytes):", data_bytes[:100])
 ```
 
----
+## 🛠 Advanced Usage (For Multi-Agent Frameworks)
 
-## 🛠 詳細な使い方 (Standard Usage)
-
-より細かなハンドシェイク処理や認証管理を行う場合は、`A2AClient` クラスを使用します。
-
-### CrewAI / ElizaOS エージェントへの統合例
+For granular control over handshakes and authentication (ideal for CrewAI / ElizaOS integration), use the `A2AClient` class:
 
 ```python
 from a2a_client import A2AClient
 
-# 1. クライアントの初期化
+# 1. Initialize Client
 client = A2AClient(
     gateway_url="http://localhost:7270",
     private_key="0x_your_private_key",
     agent_id="ElizaOS-Trading-Agent-01"
 )
 
-# 2. 逆チューリングテスト＆チャレンジ取得 (Ping)
+# 2. Reverse Turing Test & Challenge (Ping)
 ping_info = client.ping()
 print("Gateway Address:", ping_info["gateway_address"])
 
-# 3. 暗号署名ハンドシェイク (Handshake)
+# 3. Cryptographic EIP-191 Handshake
 session_token = client.handshake()
 print("Session Token:", session_token)
 
-# 4. 決済済みデータパッケージの取得 ＆ AES-GCM復号
+# 4. Fetch Verified Data & AES-GCM Decrypt
 decrypted_bytes = client.fetch(
     payload_id="logiqualia_p1",
     payment_tx_hash="0x_your_verified_payment_tx_hash"
 )
 
-# 復号結果の利用
 with open("downloaded_payload.bin", "wb") as f:
     f.write(decrypted_bytes)
 ```
 
----
+## ⚙️ Architecture Flow (The A2A Workflow)
 
-## ⚙ アーキテクチャフロー (A2A Workflow)
-
-```
+```text
 [ External Agent ]                   [ LEAN A2A Gateway ]
        |                                       |
        | ------ 1. GET / ping ---------------->| (Reverse Turing Test)
@@ -115,8 +99,5 @@ with open("downloaded_payload.bin", "wb") as f:
 [ AES-GCM Decryption ]                         |
 ```
 
----
-
-## 📄 ライセンス (License)
-
-MIT License
+## 📄 License
+This project is licensed under the MIT License - see the LICENSE file for details. Built for the Decentralized AI ecosystem on Mantle.
