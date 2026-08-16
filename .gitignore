@@ -5,3 +5,5 @@ dist/
 *.egg-info/
 .env
 node_modules/
+gateway/keys_db.json
+keys_db.json
