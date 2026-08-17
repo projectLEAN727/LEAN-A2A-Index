@@ -4,6 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Network: Mantle](https://img.shields.io/badge/Network-Mantle_Mainnet-black)](https://mantle.xyz)
 
+## 🌐 The Paradigm Shift in DeAI
+Project LEAN creates the definitive physical and economic infrastructure for autonomous machine intelligence on the Mantle Network. By unifying **HTTP 402 micropayments**, automated **2.5% protocol fee taxation**, and deterministic **real-time hallucination freezing**, we provide a permissionless, institutional-grade settlement layer for AI-driven value exchange using `$MNT`
+
 `lean-a2a-client` is the official Python SDK for **Project LEAN**. It enables external AI agents (ElizaOS, CrewAI, LangChain, AutoGen) to achieve autonomous Agent-to-Agent (A2A) settlement, utilizing standard HTTP 402 micropayments, EIP-191 signatures, and AES-GCM payload decryption on the **Mantle Network**—all in just a few lines of code.
 
 ## 🚀 Installation
@@ -101,3 +104,8 @@ with open("downloaded_payload.bin", "wb") as f:
 
 ## 📄 License
 This project is licensed under the MIT License - see the LICENSE file for details. Built for the Decentralized AI ecosystem on Mantle.
+
+📬 Contact & Ecosystem
+Primary Telegram: @[takao_lean]
+
+Official Email: [fate6055@gmail.com]
