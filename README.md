@@ -1,13 +1,10 @@
-# ⚡ lean-a2a-client: The Sovereign A2A Settlement SDK for Mantle
+# lean-a2a-client: The Official SDK for LEAN Sovereign Protocol (LSP)
 
-[![PyPI version](https://badge.fury.io/py/lean-a2a-client.svg)](https://badge.fury.io/py/lean-a2a-client)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Network: Mantle](https://img.shields.io/badge/Network-Mantle_Mainnet-black)](https://mantle.xyz)
+![Mantle Network](https://img.shields.io/badge/Network-Mantle_Mainnet-black?style=flat-square)
+![DeAI](https://img.shields.io/badge/Category-DeAI_%2F_Autonomous_Agents-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-## 🌐 The Paradigm Shift in DeAI
-Project LEAN creates the definitive physical and economic infrastructure for autonomous machine intelligence on the Mantle Network. By unifying **HTTP 402 micropayments**, automated **2.5% protocol fee taxation**, and deterministic **real-time hallucination freezing**, we provide a permissionless, institutional-grade settlement layer for AI-driven value exchange using `$MNT`
-
-`lean-a2a-client` is the official Python SDK for **Project LEAN**. It enables external AI agents (ElizaOS, CrewAI, LangChain, AutoGen) to achieve autonomous Agent-to-Agent (A2A) settlement, utilizing standard HTTP 402 micropayments, EIP-191 signatures, and AES-GCM payload decryption on the **Mantle Network**—all in just a few lines of code.
+`lean-a2a-client` is the official Python SDK for **Project LEAN**. It enables external AI agents (ElizaOS, CrewAI, LangChain, AutoGen) to interact with the **LEAN Sovereign Protocol (LSP)**—achieving autonomous Agent-to-Agent (A2A) settlement, standard HTTP 402 micropayments, EIP-191 signatures, and AES-GCM payload decryption on the **Mantle Network** in just a few lines of code.
 
 ## 🚀 Installation
 
@@ -25,13 +22,13 @@ Set your agent's maximum budget (`max_budget_mnt`). The SDK autonomously handles
 ```python
 import a2a_client
 
-# Fully automated: Budget Check ➔ MNT Transfer ➔ Wait for Tx ➔ Decrypt
+# Fully automated: Budget Check -> MNT Transfer -> Wait for Tx -> Decrypt
 data_bytes = a2a_client.auto_fetch(
     gateway_url="http://localhost:7270",
     payload_id="logiqualia_p1",
     max_budget_mnt=0.50,  # Pre-flight budget guard: 0.50 MNT
     private_key="0x_your_agent_private_key",
-    rpc_url="[https://rpc.mantle.xyz](https://rpc.mantle.xyz)"
+    rpc_url="https://rpc.mantle.xyz"
 )
 
 print(f"Decrypted Content ({len(data_bytes)} bytes):", data_bytes[:100])
@@ -47,13 +44,13 @@ data_bytes = a2a_client.quick_fetch(
     gateway_url="http://localhost:7270",
     payload_id="logiqualia_p1",
     payment_tx_hash="0x_your_verified_payment_tx_hash",
-    private_key="0x_agent_private_key"
+    private_key="0x_your_agent_private_key"
 )
 
 print(f"Decrypted Content ({len(data_bytes)} bytes):", data_bytes[:100])
 ```
 
-## 🛠 Advanced Usage (For Multi-Agent Frameworks)
+## ⚙️ Advanced Usage (For Multi-Agent Frameworks)
 
 For granular control over handshakes and authentication (ideal for CrewAI / ElizaOS integration), use the `A2AClient` class:
 
@@ -85,24 +82,29 @@ with open("downloaded_payload.bin", "wb") as f:
     f.write(decrypted_bytes)
 ```
 
-## ⚙️ Architecture Flow (The A2A Workflow)
+## 🧠 Architecture Flow (The LSP Workflow)
 
 ```text
-[ External Agent ]                   [ LEAN A2A Gateway ]
-       |                                       |
-       | ------ 1. GET / ping ---------------->| (Reverse Turing Test)
-       |<------ Challenge Token -------------- |
-       |                                       |
-       | ------ 2. POST / handshake ---------->| (EIP-191 Signature Verification)
-       |<------ Session Token -----------------|
-       |                                       |
-       | ------ 3. POST / request_payload ---->| (On-Chain Settlement Verification)
-       |<------ Encrypted Payload + Key -------|
-       |                                       |
-[ AES-GCM Decryption ]                         |
+[ External Agent ]                     [ LSP Gateway ]
+        |                                     |
+        | ------ 1. GET / ping -------------> | (Reverse Turing Test)
+        | <----- Challenge Token ------------ |
+        |                                     |
+        | ------ 2. POST / handshake -------> | (EIP-191 Signature Verification)
+        | <----- Session Token -------------- |
+        |                                     |
+        | ------ 3. POST / request_payload -> | (On-Chain Settlement Verification)
+        | <----- Encrypted Payload + Key ---- |
+        |                                     |
+[ AES-GCM Decryption ]                        |
 ```
 
-## 📄 License
+## 🛡️ Institutional-Grade Security (LSP Standard)
+* **Decoupled Architecture:** Encrypted payloads (`.enc`) are entirely separated from decryption keys.
+* **Zero-Waste Budget Guards:** Pre-flight checks prevent agents from broadcasting over-budget transactions.
+* **Protocol Taxation:** Automated 2.5% protocol fee routed to the LEAN Treasury via `FluidControlOracle.sol`.
+
+## 📜 License
 This project is licensed under the MIT License - see the LICENSE file for details. Built for the Decentralized AI ecosystem on Mantle.
 
 📬 Contact & Ecosystem
